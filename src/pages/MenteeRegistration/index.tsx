@@ -1,4 +1,5 @@
-import React, { type ChangeEvent, useState } from 'react';
+import type React from 'react';
+import { type ChangeEvent, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { API_URL } from '../../constants';
@@ -10,7 +11,7 @@ import { MenteeApplicationSchema } from '../../schemas';
 import FormCheckbox from '../../components/FormFields/MenteeApplication/FormCheckbox';
 import FormInput from '../../components/FormFields/MenteeApplication/FormInput';
 import useProfile from '../../hooks/useProfile';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 const steps = [
   {
@@ -32,6 +33,8 @@ const MenteeRegistration: React.FC = () => {
     handleSubmit,
     watch,
     setValue,
+    setError,
+    clearErrors,
     trigger,
     formState: { errors },
   } = useForm<MenteeApplication>({
@@ -40,6 +43,7 @@ const MenteeRegistration: React.FC = () => {
       firstName: user?.first_name,
       lastName: user?.last_name,
       email: user?.primary_email,
+      profilePic: user?.image_url,
       mentorId,
     },
   });
@@ -52,8 +56,17 @@ const MenteeRegistration: React.FC = () => {
     if (event.target.files != null) {
       const file = event.target.files[0];
       setImage(file);
-      setValue('profilePic', file);
       setProfilePic(URL.createObjectURL(file));
+      clearErrors('profilePic');
+      if (file.size > 5 * 1024 * 1024) {
+        setError(
+          'profilePic',
+          { message: 'The profile picture must be a maximum of 5MB.' },
+          { shouldFocus: true }
+        );
+      } else {
+        setValue('profilePic', URL.createObjectURL(file));
+      }
     }
   };
 
@@ -64,7 +77,7 @@ const MenteeRegistration: React.FC = () => {
   const handleNext = async (): Promise<void> => {
     let fields = steps[currentStep].fields;
 
-    if (currentStep === 0 && !profilePic) {
+    if (currentStep === 0 && !user?.image_url) {
       fields.push('profilePic');
     } else if (currentStep === 1) {
       if (watch('isUndergrad')) {
@@ -90,7 +103,9 @@ const MenteeRegistration: React.FC = () => {
 
   const onSubmit: SubmitHandler<MenteeApplication> = async (data) => {
     applyForMentor(data);
-    updateProfile({ profile: null, image });
+    if (image) {
+      updateProfile({ profile: null, image });
+    }
   };
 
   const {
@@ -215,7 +230,7 @@ const MenteeRegistration: React.FC = () => {
             </div>
             <FormCheckbox
               name="isUndergrad"
-              label="Are you a university student?"
+              label="I'm a university student"
               register={register}
               error={errors.isUndergrad}
             />
@@ -259,7 +274,7 @@ const MenteeRegistration: React.FC = () => {
               <>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-600">
-                    Graduated year?
+                    Graduated year
                   </label>
                   <input
                     placeholder="2024"
@@ -316,7 +331,7 @@ const MenteeRegistration: React.FC = () => {
               type="text"
               placeholder=""
               name="cv"
-              label="CV"
+              label="CV (Google Doc link, Google Drive link)"
               register={register}
               error={errors.cv}
             />
@@ -387,8 +402,12 @@ const MenteeRegistration: React.FC = () => {
           </div>
         ) : null}
         <hr className="border-t border-gray-300 my-6" />
-        <div className="flex justify-between">
-          {currentStep > 0 && (
+        <div
+          className={`flex ${
+            applicationSuccess ? 'justify-end' : 'justify-between'
+          }`}
+        >
+          {currentStep > 0 && !applicationSuccess && (
             <button
               type="button"
               onClick={handlePrev}
@@ -406,13 +425,21 @@ const MenteeRegistration: React.FC = () => {
               Next
             </button>
           )}
-          {currentStep === 2 && (
+          {currentStep === 2 && !applicationSuccess && (
             <button
               type="submit"
               className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2"
             >
               {isApplicationPending ? 'Submitting...' : 'Submit'}
             </button>
+          )}
+          {applicationSuccess && (
+            <Link
+              to="/"
+              className="text-white bg-blue-500 hover:bg-blue-600 focus:ring-1 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-small rounded-md text-sm inline-flex items-center px-3 py-1.5 text-center me-2"
+            >
+              Back to home
+            </Link>
           )}
         </div>
       </form>

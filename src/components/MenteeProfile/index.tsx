@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { ApplicationStatus } from '../../enums';
 import { useMentees } from '../../hooks/useMentees';
 import UserIcon from '../../assets/svg/Icons/UserIcon';
@@ -6,6 +6,7 @@ import { getStateColor } from '../../utils';
 import { useParams } from 'react-router-dom';
 import useMentee from '../../hooks/useMentee';
 import Toast from '../Toast';
+import ApproveRejectButtons from '../ApproveRejectButtons';
 
 const MenteeProfile: React.FC = () => {
   const { menteeId } = useParams();
@@ -52,6 +53,15 @@ const MenteeProfile: React.FC = () => {
                 >
                   {mentee?.state}
                 </span>
+                {mentee?.state !== ApplicationStatus.PENDING &&
+                  mentee?.status_updated_date && (
+                    <span>
+                      {mentee?.status_updated_by === 'admin'
+                        ? 'by ScholarX team'
+                        : ''}{' '}
+                      on {new Date(mentee?.status_updated_date).toDateString()}
+                    </span>
+                  )}
               </div>
               {mentee?.application.isUndergrad ? (
                 <span className="text-xl font-light">
@@ -64,24 +74,19 @@ const MenteeProfile: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="ml-auto flex overflow-hidden mt-5 md:mt-0">
-            <button
-              className="inline-block rounded border px-10 py-2 my-2 mx-2 text-sm font-medium text-primary-blue border-primary-blue focus:outline-none focus:ring"
-              onClick={() => {
+        </div>
+        <div className="ml-auto flex overflow-hidden mt-4 md:mt-0">
+          {mentee?.state === ApplicationStatus.PENDING && (
+            <ApproveRejectButtons
+              isLoading={isPending}
+              approve={() => {
                 handleStateUpdate(ApplicationStatus.APPROVED);
               }}
-            >
-              {isPending ? 'Loading...' : 'Approve'}
-            </button>
-            <button
-              className="inline-block rounded border px-10 py-2 my-2 mx-2 text-sm font-medium text-red-500 border-red-500 focus:outline-none focus:ring"
-              onClick={() => {
+              reject={() => {
                 handleStateUpdate(ApplicationStatus.REJECTED);
               }}
-            >
-              {isPending ? 'Loading...' : 'Reject'}
-            </button>
-          </div>
+            />
+          )}
         </div>
         <div className="md:hidden">
           <a
@@ -139,7 +144,7 @@ const MenteeProfile: React.FC = () => {
                     <p>{mentee?.application.contactNo}</p>
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold">Undergraduate</h3>
+                    <h3 className="text-base font-semibold">Graduated year</h3>
                     <p>{mentee?.application.graduatedYear}</p>
                   </div>
                 </>

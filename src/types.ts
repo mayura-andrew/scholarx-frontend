@@ -3,7 +3,11 @@ import {
   type MentorApplicationSchema,
   type MenteeApplicationSchema,
 } from './schemas';
-import { type ProfileTypes } from './enums';
+import {
+  type StatusUpdatedBy,
+  type ApplicationStatus,
+  type ProfileTypes,
+} from './enums';
 
 export interface Category {
   category: string;
@@ -16,7 +20,7 @@ export interface Mentor {
   uuid: string;
   created_at: string;
   updated_at: string;
-  state: string;
+  state: ApplicationStatus;
   category: Category;
   application: MentorApplication;
   availability: boolean;
@@ -36,6 +40,8 @@ export interface Mentee {
   created_at: Date;
   updated_at: Date;
   certificate_id: string;
+  status_updated_by?: StatusUpdatedBy;
+  status_updated_date?: Date;
   journal: string;
 }
 
@@ -79,4 +85,18 @@ export type SendEmailsFunction = (
 
 export interface MutationData {
   message: string;
+}
+
+export interface PasswordResetData {
+  email: string;
+}
+
+export interface PasswordResetResponse {
+  status: string;
+  message: string;
+}
+
+export interface PasswordUpdateData {
+  token: string;
+  newPassword: string;
 }

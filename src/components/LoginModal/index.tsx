@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { API_URL } from '../../constants';
 import closeIcon from '../../assets/svg/closeIcon.svg';
@@ -8,11 +9,13 @@ import GoogleLoginButton from '../OAuth/Google';
 interface LoginModalProps {
   handleClose: () => void;
   onRegistrationClick: () => void;
+  onForgotPasswordClick: () => void;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({
   handleClose,
   onRegistrationClick,
+  onForgotPasswordClick,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -124,7 +127,13 @@ const LoginModal: React.FC<LoginModalProps> = ({
                     </label>
                   </div>
                 </div>
-                <p className="text-sm font-normal text-black hover:underline">
+                <p
+                  className="text-sm font-normal text-black hover:underline cursor-pointer"
+                  onClick={() => {
+                    onForgotPasswordClick();
+                    handleClose();
+                  }}
+                >
                   Forgot Password?
                 </p>
                 <button

@@ -1,16 +1,18 @@
-import React, { type ChangeEvent, useState, useEffect } from 'react';
-import axios, { AxiosError } from 'axios';
+import type React from 'react';
+import { type ChangeEvent, useState, useEffect } from 'react';
+import { AxiosError } from 'axios';
 import { useForm, type SubmitHandler } from 'react-hook-form';
-import { API_URL } from '../../constants';
 import useCategories from '../../hooks/useCategories';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
 import { MentorApplicationSchema } from '../../schemas';
 import { type MentorApplication } from '../../types';
 import FormCheckbox from '../../components/FormFields/MentorApplication/FormCheckbox';
 import FormInput from '../../components/FormFields/MentorApplication/FormInput';
 import FormTextarea from '../../components/FormFields/MentorApplication/FormTextarea';
 import useProfile from '../../hooks/useProfile';
+import { useLoginModalContext } from '../../contexts/LoginModalContext';
+import useMentor from '../../hooks/useMentor';
+import { Link } from 'react-router-dom';
 
 const steps = [
   {
@@ -19,17 +21,27 @@ const steps = [
   },
   {
     id: 'Step 2',
-    fields: ['position', 'institution', 'expertise', 'cv', 'bio'],
+    fields: [
+      'position',
+      'institution',
+      'expertise',
+      'cv',
+      'bio',
+      'linkedin',
+      'website',
+    ],
   },
 ];
 
 const MentorRegistrationPage: React.FC = () => {
-  const { data: user, updateProfile } = useProfile();
+  const { data: user, updateProfile, isUserLoading } = useProfile();
   const {
     register,
     handleSubmit,
     watch,
     trigger,
+    clearErrors,
+    setError,
     setValue,
     unregister,
     formState: { errors },
@@ -39,9 +51,18 @@ const MentorRegistrationPage: React.FC = () => {
       firstName: user?.first_name,
       lastName: user?.last_name,
       email: user?.primary_email,
+      profilePic: user?.image_url,
     },
   });
   const { error: categoryError, data: categories } = useCategories();
+  const {
+    createMentorApplication,
+    applicationError,
+    applicationSuccess,
+    isApplicationError,
+    isApplicationSubmitting,
+  } = useMentor(null);
+  const { handleLoginModalOpen } = useLoginModalContext();
   const [image, setImage] = useState<File | null>(null);
   const [profilePic, setProfilePic] = useState(user?.image_url);
   const [currentStep, setCurrentStep] = useState(0);
@@ -67,6 +88,10 @@ const MentorRegistrationPage: React.FC = () => {
     setCurrentStep((prevStep) => prevStep + 1);
   };
 
+  if (!isUserLoading && !user) {
+    handleLoginModalOpen();
+  }
+
   const handlePrev = (): void => {
     setCurrentStep((prevStep) => prevStep - 1);
   };
@@ -74,46 +99,38 @@ const MentorRegistrationPage: React.FC = () => {
   useEffect(() => {
     if (watch('isPastMentor')) {
       async () => {
-        await trigger(['mentoredYear', 'motivation', 'reasonToMentor'], {
+        await trigger(['mentoredYear', 'motivation'], {
           shouldFocus: true,
         });
       };
     } else {
-      unregister(['mentoredYear', 'motivation', 'reasonToMentor']);
+      unregister(['mentoredYear', 'motivation']);
     }
   }, [watch('isPastMentor')]);
 
   const onSubmit: SubmitHandler<MentorApplication> = async (data) => {
     const { profilePic, ...application } = data;
     createMentorApplication(application as MentorApplication);
-    updateProfile({ profile: null, image });
+    if (image) {
+      updateProfile({ profile: null, image });
+    }
   };
-
-  const {
-    mutate: createMentorApplication,
-    error: applicationError,
-    isSuccess: applicationSuccess,
-    isError: isApplicationError,
-    isPending: isApplicationSubmitting,
-  } = useMutation({
-    mutationFn: async (data: MentorApplication) => {
-      await axios.post(
-        `${API_URL}/mentors`,
-        {
-          application: data,
-          categoryId: data.category,
-        },
-        { withCredentials: true }
-      );
-    },
-  });
 
   const handleProfilePicChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files != null) {
       const file = event.target.files[0];
       setImage(file);
-      setValue('profilePic', file);
       setProfilePic(URL.createObjectURL(file));
+      clearErrors('profilePic');
+      if (file.size > 5 * 1024 * 1024) {
+        setError(
+          'profilePic',
+          { message: 'The profile picture must be a maximum of 5MB.' },
+          { shouldFocus: true }
+        );
+      } else {
+        setValue('profilePic', URL.createObjectURL(file));
+      }
     }
   };
 
@@ -298,7 +315,7 @@ const MentorRegistrationPage: React.FC = () => {
               type="text"
               placeholder=""
               name="cv"
-              label="CV"
+              label="CV (Google Doc link, Google Drive link)"
               register={register}
               error={errors.cv}
             />
@@ -309,7 +326,7 @@ const MentorRegistrationPage: React.FC = () => {
             <div className="text-xl font-medium mb-2">Mentorship Details</div>
             <FormCheckbox
               name="isPastMentor"
-              label="Are you a past mentor?"
+              label="I'm a past mentor"
               register={register}
               error={errors.isPastMentor}
             />
@@ -324,6 +341,12 @@ const MentorRegistrationPage: React.FC = () => {
                     {...register('mentoredYear', { valueAsNumber: true })}
                     className="mt-1 p-2 border rounded-md"
                   />
+                  <br />
+                  {errors != null && (
+                    <span className="text-red-500">
+                      {errors.mentoredYear?.message}
+                    </span>
+                  )}
                 </div>
                 <FormTextarea
                   placeholder="Seeing mentees succeed and make meaningful contributions to the field inspires me."
@@ -332,15 +355,15 @@ const MentorRegistrationPage: React.FC = () => {
                   register={register}
                   error={errors.motivation}
                 />
-                <FormTextarea
-                  placeholder="I believe in nurturing the next generation of engineers and entrepreneurs."
-                  name="reasonToMentor"
-                  label="Why would like to be a ScholarX mentor?"
-                  register={register}
-                  error={errors.reasonToMentor}
-                />
               </>
             )}
+            <FormTextarea
+              placeholder="I believe in nurturing the next generation of engineers and entrepreneurs."
+              name="reasonToMentor"
+              label="Why would like to be a ScholarX mentor?"
+              register={register}
+              error={errors.reasonToMentor}
+            />
             <FormTextarea
               placeholder="I expect mentees to be passionate about engineering and committed to learning."
               name="menteeExpectations"
@@ -408,8 +431,12 @@ const MentorRegistrationPage: React.FC = () => {
           </div>
         ) : null}
         <hr className="border-t border-gray-300 my-6" />
-        <div className="flex justify-between">
-          {currentStep > 0 && (
+        <div
+          className={`flex ${
+            applicationSuccess ? 'justify-end' : 'justify-between'
+          }`}
+        >
+          {currentStep > 0 && !applicationSuccess && (
             <button
               type="button"
               onClick={handlePrev}
@@ -427,13 +454,21 @@ const MentorRegistrationPage: React.FC = () => {
               Next
             </button>
           )}
-          {currentStep === 2 && (
+          {currentStep === 2 && !applicationSuccess && (
             <button
               type="submit"
               className="text-white bg-blue-500 hover:bg-blue-600 focus:ring-1 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-small rounded-md text-sm inline-flex items-center px-3 py-1.5 text-center me-2"
             >
               {isApplicationSubmitting ? 'Submitting...' : 'Submit'}
             </button>
+          )}
+          {applicationSuccess && (
+            <Link
+              to="/"
+              className="text-white bg-blue-500 hover:bg-blue-600 focus:ring-1 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-small rounded-md text-sm inline-flex items-center px-3 py-1.5 text-center me-2"
+            >
+              Back to home
+            </Link>
           )}
         </div>
       </form>
