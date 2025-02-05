@@ -45,6 +45,10 @@ export interface Mentee {
   status_updated_by?: StatusUpdatedBy;
   status_updated_date?: Date;
   journal: string;
+  monthlyCheckIns?: Array<{
+    uuid: string;
+    checkInDate: string;
+  }>;
 }
 
 export interface Profile {
